@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE=${REACHY_MINI_BASE_URL:-http://127.0.0.1:8000}
+ATTEMPTS=1
+if [[ ${1:-} == --startup ]]; then
+    ATTEMPTS=90
+elif [[ $# -ne 0 ]]; then
+    echo "Usage: $0 [--startup]" >&2
+    exit 2
+fi
+
+for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
+    if status=$(curl -fsS --max-time 3 "$BASE/api/daemon/status") && \
+       media=$(curl -fsS --max-time 3 "$BASE/api/media/status"); then
+        python3 - "$status" "$media" <<'PY'
+import json
+import sys
+
+status = json.loads(sys.argv[1])
+media = json.loads(sys.argv[2])
+problems = []
+if status.get("state") != "running":
+    problems.append(f"daemon state={status.get('state')!r}")
+if status.get("error"):
+    problems.append(f"daemon error={status['error']}")
+if not media.get("available"):
+    problems.append("media unavailable")
+if problems:
+    print("; ".join(problems), file=sys.stderr)
+    raise SystemExit(1)
+PY
+        echo "Reachy Mini daemon and media are healthy"
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "Reachy Mini did not become healthy." >&2
+exit 1

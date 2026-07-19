@@ -1,0 +1,24 @@
+[Unit]
+Description=Reachy Mini native ARM64 daemon
+After=graphical-session.target sound.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+UMask=0077
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+Environment=PYTHONUNBUFFERED=1
+Environment=GST_PLUGIN_PATH=@PLUGIN_DIR@
+ExecStart=@DAEMON@ --serialport /dev/ttyACM0 --fastapi-host 127.0.0.1 --fastapi-port 8000 --no-wake-up-on-start --goto-sleep-on-stop --no-preload-datasets --log-level INFO
+ExecStop=@STOPPER@
+ExecStartPost=@HEALTHCHECK@ --startup
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=90
+
+[Install]
+WantedBy=default.target

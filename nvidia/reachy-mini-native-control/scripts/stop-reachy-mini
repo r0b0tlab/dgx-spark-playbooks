@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE=${REACHY_MINI_BASE_URL:-http://127.0.0.1:8000}
+if ! curl -fsS --max-time 2 "$BASE/api/daemon/status" >/dev/null 2>&1; then
+    exit 0
+fi
+
+current=$(curl -fsS --max-time 3 "$BASE/api/apps/current-app-status" || printf 'null')
+if [[ $current != null ]]; then
+    curl -fsS -X POST --max-time 10 "$BASE/api/apps/stop-current-app" >/dev/null || true
+    for _ in $(seq 1 60); do
+        current=$(curl -fsS --max-time 2 "$BASE/api/apps/current-app-status" 2>/dev/null || printf 'null')
+        [[ $current == null ]] && break
+        sleep 1
+    done
+fi
+
+curl -fsS -X POST --max-time 10 "$BASE/api/daemon/stop?goto_sleep=true" >/dev/null || exit 0
+for _ in $(seq 1 60); do
+    status=$(curl -fsS --max-time 2 "$BASE/api/daemon/status" 2>/dev/null || true)
+    [[ -z $status ]] && exit 0
+    state=$(python3 -c 'import json, sys; print(json.load(sys.stdin).get("state", "unknown"))' <<<"$status" 2>/dev/null || printf unknown)
+    [[ $state == stopped ]] && exit 0
+    [[ $state == error ]] && { printf '%s\n' "$status" >&2; exit 1; }
+    sleep 1
+done
+
+echo "Timed out waiting for Reachy Mini to stop" >&2
+exit 1
