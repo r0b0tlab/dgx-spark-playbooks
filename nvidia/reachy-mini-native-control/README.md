@@ -171,6 +171,31 @@ systemctl --user stop reachy-mini-daemon.service
 The final playbook will include the exact released ARM64 control-app package and
 Conversation smoke sequence after the upstream changes are published.
 
+## DGX Spark Control window rendering
+
+A source-built ARM64 Reachy Mini Control binary can start normally while its
+WebKitGTK content area remains uniformly gray or white. Confirm this specific
+DGX Spark/NVIDIA DMA-BUF failure from the application log before applying a
+workaround:
+
+```text
+KMS: DRM_IOCTL_MODE_CREATE_DUMB failed: Permission denied
+Failed to create GBM buffer ... Permission denied
+```
+
+For that signature, disable only WebKitGTK's DMA-BUF renderer in the Control
+application launcher:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 reachy-mini-control
+```
+
+This changes UI compositing only; it does not disable CUDA or daemon media.
+Persist the variable in the packaged desktop launcher after confirming that the
+connection UI renders. Also start a fresh graphical login after joining
+`dialout` and `video`; group database membership alone does not update an
+already-running desktop session.
+
 ## Troubleshooting
 
 | Symptom | Check | Resolution |
@@ -178,6 +203,7 @@ Conversation smoke sequence after the upstream changes are published.
 | Serial permission denied | `id`, daemon's selected serial path | Join `dialout`, then log in again |
 | Camera permission denied | `id`, daemon's selected V4L2 path | Join `video`, then log in again |
 | `webrtcsink` missing | `gst-inspect-1.0 webrtcsink` | Install the pinned ARM64 plugin build |
+| Control window is blank and logs GBM/KMS permission failures | launch once with `WEBKIT_DISABLE_DMABUF_RENDERER=1` | Persist the variable in the Control launcher; do not apply it without the matching log signature |
 | Port 8000 occupied | `ss -ltnp 'sport = :8000'` | Stop the stale daemon before starting systemd |
 | Robot moves at login | inspect daemon flags | Keep the service disabled or retain `--no-wake-up-on-start` |
 | API reachable from LAN | inspect `--fastapi-host` | Bind to `127.0.0.1`; do not expose the unauthenticated API |
