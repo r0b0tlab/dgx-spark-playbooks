@@ -72,18 +72,25 @@ Log out and back in before continuing. Verify access:
 uname -m
 dpkg --print-architecture
 id
-stat /dev/ttyACM0 /dev/video0
+python3 - <<'PY'
+from glob import glob
+
+print("serial candidates:", glob("/dev/serial/by-id/*") or glob("/dev/ttyACM*"))
+print("video candidates:", glob("/dev/video*"))
+PY
 ```
 
 Expected architecture values are `aarch64` and `arm64`.
+The service intentionally leaves serial and camera identity selection to the
+SDK's upstream discovery code rather than assuming `/dev/ttyACM0` or
+`/dev/video0`. Confirm the selected devices in the first-start logs.
 
 ## Install the native Python environment
 
 ```bash
 uv venv --python 3.12 "$HOME/.venvs/reachy-mini"
 uv pip install --python "$HOME/.venvs/reachy-mini/bin/python" \
-  "reachy-mini==1.9.0" \
-  "reachy-mini-conversation-app==0.10.0"
+  "reachy-mini==1.9.0"
 ```
 
 Verify the daemon CLI and safety flags:
@@ -110,7 +117,7 @@ frozen for the final playbook.
 If installed under the validated prefix:
 
 ```bash
-export GST_PLUGIN_PATH=/opt/gst-plugins-rs/lib/aarch64-linux-gnu
+export GST_PLUGIN_PATH=/opt/gst-plugins-rs/lib/aarch64-linux-gnu/gstreamer-1.0
 ```
 
 ## Install the opt-in service
@@ -151,8 +158,9 @@ curl -fsS http://127.0.0.1:8000/api/daemon/status
 curl -fsS http://127.0.0.1:8000/api/media/status
 ```
 
-Install and launch the Conversation app through Reachy Mini Control or the
-daemon app API only after configuring the required application credentials.
+Install the Conversation app from the official Reachy Mini app catalog through
+Reachy Mini Control or the daemon app API; it is not a PyPI package. Launch it
+only after configuring the required application credentials.
 Stop the app before stopping the service:
 
 ```bash
@@ -167,8 +175,8 @@ Conversation smoke sequence after the upstream changes are published.
 
 | Symptom | Check | Resolution |
 | --- | --- | --- |
-| Serial permission denied | `id`, `stat /dev/ttyACM0` | Join `dialout`, then log in again |
-| Camera permission denied | `id`, `stat /dev/video0` | Join `video`, then log in again |
+| Serial permission denied | `id`, daemon's selected serial path | Join `dialout`, then log in again |
+| Camera permission denied | `id`, daemon's selected V4L2 path | Join `video`, then log in again |
 | `webrtcsink` missing | `gst-inspect-1.0 webrtcsink` | Install the pinned ARM64 plugin build |
 | Port 8000 occupied | `ss -ltnp 'sport = :8000'` | Stop the stale daemon before starting systemd |
 | Robot moves at login | inspect daemon flags | Keep the service disabled or retain `--no-wake-up-on-start` |

@@ -12,7 +12,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 Environment=PYTHONUNBUFFERED=1
 Environment=GST_PLUGIN_PATH=@PLUGIN_DIR@
-ExecStart=@DAEMON@ --serialport /dev/ttyACM0 --fastapi-host 127.0.0.1 --fastapi-port 8000 --no-wake-up-on-start --goto-sleep-on-stop --no-preload-datasets --log-level INFO
+Environment=REACHY_MINI_BASE_URL=http://127.0.0.1:8000
+ExecStart=@DAEMON@ --serialport auto --fastapi-host 127.0.0.1 --fastapi-port 8000 --no-wake-up-on-start --goto-sleep-on-stop --no-preload-datasets --log-level INFO
 ExecStop=@STOPPER@
 ExecStartPost=@HEALTHCHECK@ --startup
 Restart=on-failure

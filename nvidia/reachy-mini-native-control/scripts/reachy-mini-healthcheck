@@ -2,6 +2,26 @@
 set -euo pipefail
 
 BASE=${REACHY_MINI_BASE_URL:-http://127.0.0.1:8000}
+if ! python3 - "$BASE" <<'PY'
+import sys
+from urllib.parse import urlsplit
+
+url = urlsplit(sys.argv[1])
+valid = (
+    url.scheme == "http"
+    and url.hostname in {"127.0.0.1", "localhost", "::1"}
+    and url.username is None
+    and url.password is None
+    and not url.path.rstrip("/")
+    and not url.query
+    and not url.fragment
+)
+raise SystemExit(0 if valid else 1)
+PY
+then
+    echo "REACHY_MINI_BASE_URL must be an unauthenticated loopback HTTP origin." >&2
+    exit 2
+fi
 ATTEMPTS=1
 if [[ ${1:-} == --startup ]]; then
     ATTEMPTS=90
